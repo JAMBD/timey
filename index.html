@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html>
+<body>
+<canvas id="myCanvas" width="100%" height="100%" style="border:0px solid #d3d3d3; position: absolute; height: 100%; width: 100%; left:0px; top:0px;">
+Your browser does not support the HTML5 canvas tag.
+</canvas>
+<script>
+
+class Block{
+  constructor(x,y,width,height,left,right,up,down){
+    this.x = x;
+    this.y = y;
+    this.height = height;
+    this.width = width;
+    this.stop_left = left;
+    this.stop_right = right;
+    this.stop_up = up;
+    this.stop_down = down;
+  }
+  draw(ctx){
+    ctx.fillStyle = "#000";
+    ctx.strokeRect(this.x-this.width/2,this.y-this.height/2,this.width,this.height);
+  }
+  validate_movement(player){
+    if (Math.abs(player.x - this.x) < player.rad + this.width/2){
+      if (Math.abs(player.y - this.y) < player.rad + this.height/2){
+        if(Math.abs(player.x - this.x) < this.width/2 + player.rad-1){
+          if(Math.abs((this.y-this.height/2)-player.y) < player.rad && this.stop_down){
+  	    player.y = this.y - this.height/2 - player.rad;
+  	    player.v_y = 0;
+  	    player.is_floor = true;
+  	  }
+          if(Math.abs((this.y+this.height/2)-player.y) < player.rad && this.stop_up){
+	    player.y = this.y + this.height/2 + player.rad;
+	    player.v_y = 0;
+	  }
+	}
+        if(Math.abs(player.y - this.y) < this.height/2 + player.rad-1){
+          if(Math.abs((this.x-this.width/2)-player.x) < player.rad && this.stop_right){
+	    player.x = this.x - this.width/2 - player.rad;
+	    player.v_x = -Math.abs(player.v_x) * 0.5;
+	  }
+          if(Math.abs((this.x+this.width/2)-player.x) < player.rad && this.stop_left){
+	    player.x = this.x + this.width/2 + player.rad;
+	    player.v_x = Math.abs(player.v_x) * 0.5;
+	  }
+	}
+        if (Math.abs(player.x - this.x) < this.width/2){
+          if (Math.abs(player.y - this.y) < this.height/2){
+            if(this.stop_up && player.v_y < 0){
+	      player.y -= player.v_y;
+	      player.v_y = 0;
+	    }
+            if(this.stop_down && player.v_y > 0){
+	      player.y -= player.v_y;
+	      player.v_y = 0;
+	    }
+	    if(this.stop_left && player.v_x < 0){
+	      player.x -= player.v_x;
+	      player.v_x = 0;
+	    }
+            if(this.stop_right && player.v_x > 0){
+	      player.x -= player.v_x;
+	      player.v_x = 0;
+	    }
+	  }
+	}
+	return true;
+      }
+    }
+    return false;
+  }
+}
+
+class Player{
+  constructor(){
+    this.x = 100;
+    this.y = 100;
+    this.v_x = 0;
+    this.v_y = 0;
+    this.rad = 5;
+    this.prev_time = 0;
+    this.is_floor = false;
+    this.history = [];
+    this.key_down_array = []
+    this.start_time = 0;
+  }
+  draw(ctx){
+    ctx.beginPath();
+    ctx.arc(this.x, this.y, this.rad, 0, 2 * Math.PI);
+    ctx.stroke();
+    ctx.fill();
+  }
+  del_action(e,level_time){
+    this.history.push([0, level_time, e.keyCode])
+  }
+
+  add_action(e,level_time){
+    this.history.push([1, level_time, e.keyCode])
+  }
+
+  perform_history(level_time){
+    for(var i=0; i < this.history.length; i++){
+      var entry = this.history[i];
+      if(entry[1] < this.prev_time) continue;
+      if(entry[1] > level_time) continue;
+      if(entry[0] == 0){
+        this.key_down_array = this.key_down_array.filter(function(v) { return v !== entry[2]});
+      }else if(entry[0] == 1){
+        switch(entry[2]){
+          case 32:
+            //space
+            if(!this.key_down_array.includes(32)){
+              this.jump();
+            }
+            break;
+          case 38:
+            //up
+            if(!this.key_down_array.includes(38)){
+              this.v_y -= 3;
+            }
+            break;
+          case 40:
+            //down
+            break;
+          case 39:
+            //right
+            break;
+          case 37:
+            //left
+            break;
+          default:
+            //alert(entry[2]);
+        }
+        if(!this.key_down_array.includes(entry[2])){
+          this.key_down_array.push(entry[2]);
+        }
+      }
+    }
+    this.prev_time = level_time;
+  }
+
+  jump(){
+    if (this.is_floor){
+      this.v_y -= 18;
+    }
+  }
+  update(level){
+    this.perform_history(level.cur_time);
+    for (i in this.key_down_array){
+      switch(this.key_down_array[i]){
+        case 39:
+          //right
+          this.v_x += 0.5;
+          break;
+        case 37:
+          //left
+          this.v_x -= 0.5;
+          break;
+      }
+    }
+    if (Math.abs(this.v_x) > 3){
+       if(this.v_x > 0){
+         this.v_x = 3;
+       }else{
+         this.v_x = -3;
+       }
+    }
+    this.v_x *= 0.900;
+    this.v_y *= 0.900;
+    this.v_y += 0.50;
+    this.x += this.v_x;
+    this.y += this.v_y;
+    this.is_floor = false;
+    for (var i in level.blocks){
+      level.blocks[i].validate_movement(this);
+    }
+    if(level.end_block.validate_movement(this)){
+      level_done = true;
+    }
+  }
+}
+
+class Level{
+  constructor(end_block, start_block, time_limit){
+    this.blocks = [];
+    this.start_block = start_block;
+    this.end_block = end_block;
+    this.time_limit = time_limit;
+    this.cur_time = 0;
+    this.try_count = 0;
+    this.past_players = [];
+    this.player = null;
+    this.started = false;
+  }
+  reset(){
+    this.cur_time = 0;
+    this.try_count ++;
+    this.player = new Player();
+    this.past_players.push(this.player);
+    this.player.start_time = this.try_count * 100;
+  }
+  start(){
+    this.started = true;
+    this.reset();
+  }
+  add_action(e){
+    this.player.add_action(e,this.cur_time);
+  }
+  del_action(e){
+    this.player.del_action(e,this.cur_time);
+  }
+  update(){
+    if(!this.started) return;
+    for(var i in this.past_players){
+      var player = this.past_players[i];
+      if(this.cur_time <= player.start_time){
+        player.v_x = 0;
+        player.v_y = 0;
+        player.x = this.start_block.x;
+        player.y = this.start_block.y;
+      }
+    }
+    this.cur_time += 1;
+    if(this.cur_time > this.time_limit){
+      this.reset();
+    }
+    for (var i in this.past_players){
+      this.past_players[i].update(this);
+    }
+  }
+  draw(ctx){
+    for (var i in this.blocks){
+      this.blocks[i].draw(ctx);
+    }
+    var per = this.cur_time / this.time_limit;
+    ctx.fillStyle = "#000";
+    ctx.beginPath();
+    ctx.moveTo(30,30);
+    ctx.arc(30,30,20,-0.5 * Math.PI,(2 * per -0.5) * Math.PI);
+    ctx.fill();
+    this.start_block.draw(ctx);
+    this.end_block.draw(ctx);
+    for (var i in this.past_players){
+      ctx.fillStyle = "#000";
+      if (i < this.past_players.length-1){
+        ctx.fillStyle = "#AAA";
+      }
+      this.past_players[i].draw(ctx);
+    }
+
+  }
+}
+
+var cur_level = -1;
+var level_switch_cnt = 0;
+var level_done = true;
+var level_switch = false;
+var game_done = false;
+var levels = [];
+levels.push(new Level(new Block(220,230,10,10,false,false,false,false), new Block(500,230,10,10,false,false),300));
+levels[0].blocks.push(new Block(200,200,100,15,true,true,true,true));
+levels[0].blocks.push(new Block(300,250,100,15,true,true,true,true));
+levels[0].blocks.push(new Block(300,225,15,50,false,true,true,true));
+levels[0].blocks.push(new Block(200,175,15,50,true,true,true,true));
+levels[0].blocks.push(new Block(window.innerWidth/2,300,window.innerWidth,20,true,true,true,true));
+levels.push(new Level(new Block(500,230,10,10,false,false,false,false), new Block(220,230,10,10,false,false),300));
+levels[1].blocks.push(new Block(200,200,100,15,true,true,true,true));
+levels[1].blocks.push(new Block(300,250,100,15,true,true,true,true));
+levels[1].blocks.push(new Block(window.innerWidth/2,300,window.innerWidth,20,true,true,true,true));
+
+function keyDownEvent(e){
+  levels[cur_level].add_action(e);
+}
+
+function keyUpEvent(e){
+  levels[cur_level].del_action(e);
+}
+
+function setup(){
+  var c = document.getElementById("myCanvas");
+  window.addEventListener('keydown', keyDownEvent, false);
+  window.addEventListener('keyup', keyUpEvent, false);
+  c.width = window.innerWidth;
+  c.height = window.innerHeight;
+  setInterval(function() {
+    update();
+    draw();
+  }, 30);
+}
+
+function draw(){
+  var c = document.getElementById("myCanvas");
+  var ctx = c.getContext("2d");
+  ctx.clearRect(0,0,window.innerWidth,window.innerHeight);
+  if(!level_switch && !game_done){
+    this.levels[this.cur_level].draw(ctx);
+  }else if(game_done){
+    ctx.fillStyle = "#000";
+    ctx.fillRect(0,0,window.innerWidth,window.innerHeight);
+    ctx.fillStyle = "#0F0";
+    ctx.fillText("GAME_COMPLETE",window.innerWidth/2,window.innerHeight/2);
+  }else{
+    ctx.fillStyle = "#000";
+    ctx.fillRect(0,0,window.innerWidth,window.innerHeight);
+    ctx.fillStyle = "#FFF";
+    ctx.fillText("level",window.innerWidth/2,window.innerHeight/2);
+  }
+}
+
+function update(){
+  if(level_switch){
+    if(level_switch_cnt > 0){
+      level_switch_cnt --;
+    }else{
+      level_switch = false;
+      levels[cur_level].start();
+    }
+  }
+  if(level_done){
+    level_switch = true;
+    level_switch_cnt = 50;
+    level_done = false;
+    cur_level ++;
+    if(cur_level >= levels.length){
+      cur_level = 0;
+      game_done = true;
+    }
+
+  }
+  levels[cur_level].update();
+}
+
+setup();
+
+</script>
+</body>
+</html>
