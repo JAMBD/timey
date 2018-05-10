@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <body>
-<canvas id="myCanvas" width="100%" height="100%" style="border:0px solid #d3d3d3; position: absolute; height: 100%; width: 100%; left:0px; top:0px;">
+<canvas id="myCanvas" width="100%" height="100%" style="border:0px;  position:absolute; ; bottom:0; right:0; left:0; top:0; margin:auto">
   Your browser does not support the HTML5 canvas tag.
 </canvas>
 <script>
@@ -387,36 +387,50 @@ function setup(){
   var c = document.getElementById("myCanvas");
   window.addEventListener('keydown', keyDownEvent, false);
   window.addEventListener('keyup', keyUpEvent, false);
+  window.addEventListener('resize', resizeCanvas, false);
   c.width = window.innerWidth;
   c.height = window.innerHeight;
   setInterval(function() {
       update();
       draw();
       }, 30);
+  resizeCanvas();
 }
 
 function draw(){
   var c = document.getElementById("myCanvas");
   var ctx = c.getContext("2d");
-  ctx.clearRect(0,0,window.innerWidth,window.innerHeight);
+  ctx.clearRect(0,0,c.width,c.height);
+  ctx.fillStyle = "#FFF";
+  ctx.fillRect(0,0,c.width,c.height);
   if(game_done){
     ctx.fillStyle = "#000";
-    ctx.fillRect(0,0,window.innerWidth,window.innerHeight);
+    ctx.fillRect(0,0,c.width,c.height);
     ctx.fillStyle = "#0F0";
-    ctx.fillText("GAME_COMPLETE",window.innerWidth/2,window.innerHeight/2);
+    ctx.fillText("GAME_COMPLETE",c.width/2,c.height/2);
   }else if(level_switch){
     ctx.fillStyle = "#000";
-    ctx.fillRect(0,0,window.innerWidth,window.innerHeight);
+    ctx.fillRect(0,0,c.width,c.height);
     ctx.fillStyle = "#FFF";
-    ctx.fillText("level",window.innerWidth/2,window.innerHeight/2);
+    ctx.fillText("level",c.width/2,c.height/2);
   }else if(this.levels[this.cur_level].failed){
     ctx.fillStyle = "#000";
-    ctx.fillRect(0,0,window.innerWidth,window.innerHeight);
+    ctx.fillRect(0,0,c.width,c.height);
     ctx.fillStyle = "#F00";
-    ctx.fillText("FAILED",window.innerWidth/2,window.innerHeight/2);
+    ctx.fillText("FAILED",c.width/2,c.height/2);
   }else{
     this.levels[this.cur_level].draw(ctx);
   }
+}
+
+function resizeCanvas(){
+  var c = document.getElementById("myCanvas");
+  min_len = Math.min(window.innerWidth,window.innerHeight);
+  c.width = min_len;
+  c.height = min_len;
+  c.style.width = min_len + 'px';
+  c.style.height = min_len + 'px';
+  draw();
 }
 
 function update(){
