@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
+<meta name="viewport" content="initial-scale=1.0, user-scalable=no" />
 <style>
 .flex {
   display: flex;
@@ -9,14 +10,16 @@
   height: 100%;
   flex-flow: row wrap;
   margin: 0;
+  border: 0px;
 }
 .flex > #left {
   margin: 0px;
   color: #FFFFFF;
-  height: 100%;
   margin: 0;
   left: 0px;
   text-align: left;
+  border: 0px;
+  font-size: 0px;
 }
 .flex > #right {
   margin: 0px;
@@ -25,32 +28,43 @@
   margin: 0;
   right: 0px;
   text-align: right;
+  border: 0px;
+  font-size: 0px;
 }
 .flex > #center {
   top: 0;
   margin: 0px;
-  margin: 0;
+  border: 0px;
+  height: 100%;
 }
 @media (min-aspect-ratio:  1/1){
   .flex > #left {
     position: absolute;
+    width: 100px;
+    height: 100%;
     order: 1;
   }
   .flex > #right {
     position: absolute;
+    width: 100px;
+    height: 100%;
     order: 3;
   }
   .flex > #center {
-    order: 2
+    order: 2;
+    bottom: 0;
+    height: 100%;
   }
 }
 @media (max-aspect-ratio:  1/1){
   .flex > #left {
     width: 50%;
+    height: 100%;
     order: 2;
   }
   .flex > #right {
     width: 50%;
+    height: 100%;
     order: 3;
   }
   .flex > #center {
@@ -59,7 +73,7 @@
 }
 </style>
 </head>
-<body style="background-color: #000;margin: 0;">
+<body style="font-size: 0; background-color: #000; margin: 0; border: 0px; height: 100%; touch-action: none;">
 <div class="flex">
   <div id="center">
     <canvas id="myCanvas" width="100%" height="100%" style="border: 0px;  position: static; right: 0; left: 0; margin: 0">
@@ -67,10 +81,14 @@
     </canvas>
   </div>
   <div id="left">
-    LEFT
+    <canvas id="space" width="100%" height="100%" ontouchstart="key_down(32)" ontouchend="key_up(32)" style="position: relative; margin: 0px;width:100%; height:100%"></canvas>
+    
   </div>
   <div id="right">
-    RIGHT
+    <canvas id="up_btn" width="100%" height="20%" ontouchstart="key_down(38)" ontouchend="key_up(38)" style="position: relative; margin: 0px;width:100%; height:20%"></canvas>
+    <canvas id="left_btn" width="50%" height="60%" ontouchstart="key_down(37)" ontouchend="key_up(37)" style="position: relative; margin: 0px;width:50%; height:60%"></canvas>
+    <canvas id="right_btn" width="50%" height="60%" ontouchstart="key_down(39)" ontouchend="key_up(39)" style="position: relative; margin: 0px;width:50%; height:60%"></canvas>
+    <canvas id="down_btn" width="100%" height="20%" ontouchstart="key_down(40)" ontouchend="key_up(40)" style="position: relative; margin: 0px;width:100%; height:20%"></canvas>
   </div>
 </div>
 <script>
@@ -187,12 +205,12 @@ class Player{
     ctx.stroke();
     ctx.fill();
   }
-  del_action(e,level_time){
-    this.history.push([0, level_time, e.keyCode])
+  del_action(key_code,level_time){
+    this.history.push([0, level_time, key_code])
   }
 
-  add_action(e,level_time){
-    this.history.push([1, level_time, e.keyCode])
+  add_action(key_code,level_time){
+    this.history.push([1, level_time, key_code])
   }
 
   perform_history(level_time){
@@ -253,6 +271,11 @@ class Player{
           //left
           this.v_x -= 0.5;
           break;
+        case 40:
+          this.v_x *= 0.8;
+          if (this.v_y < 0){
+            this.v_y *= 0.8;
+          }
       }
     }
     if (Math.abs(this.v_x) > 3){
@@ -286,10 +309,12 @@ class Level{
     this.started = false;
     this.failed = false;
     this.complete = false;
+    this.speed_up = 0;
   }
   reset(){
     this.player = new Player();
     this.cur_time = 0;
+    this.speed_up = 0;
     this.past_players.push(this.player);
     for(var i in this.past_players){
       this.past_players[i].key_down_array = [];
@@ -304,73 +329,88 @@ class Level{
     this.started = true;
     this.reset();
   }
-  add_action(e){
+  add_action(key_code){
     if (this.player != null){
-      this.player.add_action(e,this.cur_time);
+      this.player.add_action(key_code,this.cur_time);
     }
   }
-  del_action(e){
+  del_action(key_code){
     if (this.player != null){
-      this.player.del_action(e,this.cur_time);
+      this.player.del_action(key_code,this.cur_time);
     }
   }
   update(){
-    if(!this.started) return;
-    if(this.failed) return;
-    for(var i in this.past_players){
-      var player = this.past_players[i];
-      if(this.cur_time <= player.start_time){
-        player.v_x = 0;
-        player.v_y = 0;
-        player.x = this.start_block.x;
-        player.y = this.start_block.y;
-      }
+    if (this.player.key_down_array.includes(16)){
+      this.speed_up ++;
+    }else{
+      this.speed_up = 0;
     }
-    for (var i in this.past_players){
-      this.past_players[i].update(this.cur_time);
+    var iterations = 1 + this.speed_up;
+    if (this.player != null && this.player.start_time > this.cur_time){
+      iterations = (this.player.start_time - this.cur_time) / 10;
     }
-    this.hit_idx = [];
-    for (var i in this.buttons){
-      this.hit_idx.push(i);
+    if (iterations > 5){
+      iterations = 5;
     }
-    for (var i in this.past_players){
-      for (var j in this.buttons){
-        if (this.buttons[j].validate_movement(this.past_players[i])){
-          this.hit_idx = this.hit_idx.filter(function(v) { return v !== j});
+    for(var iter_i=0; iter_i <iterations; ++iter_i){
+      if(!this.started) return;
+      if(this.failed) return;
+      if(this.complete) return;
+      for(var i in this.past_players){
+        var player = this.past_players[i];
+        if(this.cur_time <= player.start_time){
+          player.v_x = 0;
+          player.v_y = 0;
+          player.x = this.start_block.x;
+          player.y = this.start_block.y;
         }
       }
-    }
-    for (var i in this.past_players){
-      for (var j in this.hit_idx){
-        this.doors[this.hit_idx[j]].validate_movement(this.past_players[i]);
+      for (var i in this.past_players){
+        this.past_players[i].update(this.cur_time);
       }
-    }
-    for (var i in this.past_players){
-      for (var j in this.blocks){
-        this.blocks[j].validate_movement(this.past_players[i]);
+      this.hit_idx = [];
+      for (var i in this.buttons){
+        this.hit_idx.push(i);
       }
-      if(this.end_block.validate_movement(this.past_players[i])){
-        this.complete = true;
-      }
-    }
-    for (var i in this.past_players){
-      for (var j in this.past_players){
-        if (j > i){
-          var p1 = this.past_players[i];
-          var p2 = this.past_players[j];
-          if(p1.start_time > this.cur_time) continue;
-          if(p2.start_time > this.cur_time) continue;
-          var dx = p1.x - p2.x;
-          var dy = p1.y - p2.y;
-          var dis2 = dx * dx + dy * dy;
-          var pdist = p1.rad + p2.rad;
-          if(pdist * pdist > dis2){
-            this.failed = true;
+      for (var i in this.past_players){
+        for (var j in this.buttons){
+          if (this.buttons[j].validate_movement(this.past_players[i])){
+            this.hit_idx = this.hit_idx.filter(function(v) { return v !== j});
           }
         }
       }
+      for (var i in this.past_players){
+        for (var j in this.hit_idx){
+          this.doors[this.hit_idx[j]].validate_movement(this.past_players[i]);
+        }
+      }
+      for (var i in this.past_players){
+        for (var j in this.blocks){
+          this.blocks[j].validate_movement(this.past_players[i]);
+        }
+        if(this.end_block.validate_movement(this.past_players[i])){
+          this.complete = true;
+        }
+      }
+      for (var i in this.past_players){
+        for (var j in this.past_players){
+          if (j > i){
+            var p1 = this.past_players[i];
+            var p2 = this.past_players[j];
+            if(p1.start_time > this.cur_time) continue;
+            if(p2.start_time > this.cur_time) continue;
+            var dx = p1.x - p2.x;
+            var dy = p1.y - p2.y;
+            var dis2 = dx * dx + dy * dy;
+            var pdist = p1.rad + p2.rad;
+            if(pdist * pdist > dis2){
+              this.failed = true;
+            }
+          }
+        }
+      }
+      this.cur_time += 1;
     }
-    this.cur_time += 1;
     if(this.cur_time > this.time_limit){
       this.reset();
     }
@@ -445,32 +485,20 @@ levels[1].doors.push(new Block(257.5,275,15,65));
 levels[1].buttons.push(new ClearBlock(300,280,10,10));
 levels[1].buttons.push(new ClearBlock(400,280,10,10));
 
-function space_down(){
-  var keyboardEvent = document.createEvent("KeyboardEvent");
-  var initMethod = typeof keyboardEvent.initKeyboardEvent !== 'undefined' ? "initKeyboardEvent" : "initKeyEvent";
+function key_down(key){
+  levels[cur_level].add_action(key);
+}
 
-
-  keyboardEvent[initMethod](
-                     "keydown", // event type : keydown, keyup, keypress
-                      true, // bubbles
-                      true, // cancelable
-                      window, // viewArg: should be window
-                      false, // ctrlKeyArg
-                      false, // altKeyArg
-                      false, // shiftKeyArg
-                      false, // metaKeyArg
-                      32, // keyCodeArg : unsigned long the virtual key code, else 0
-                      0 // charCodeArgs : unsigned long the Unicode character associated with the depressed key, else 0
-  );
-  keyDown(keyboardEvent);  
+function key_up(key){
+  levels[cur_level].del_action(key);
 }
 
 function keyDownEvent(e){
-  levels[cur_level].add_action(e);
+  levels[cur_level].add_action(e.keyCode);
 }
 
 function keyUpEvent(e){
-  levels[cur_level].del_action(e);
+  levels[cur_level].del_action(e.keyCode);
 }
 
 function setup(){
@@ -483,6 +511,33 @@ function setup(){
       draw();
       }, 30);
   resizeCanvas();
+  if ('ontouchstart' in document.documentElement){
+    var c2 = document.getElementById("space");
+    var ctx2 = c2.getContext("2d");
+    ctx2.clearRect(0,0,c2.width,c2.height);
+    ctx2.fillStyle = "#8FF";
+    ctx2.fillRect(0,0,c2.width,c2.height);
+    c2 = document.getElementById("left_btn");
+    ctx2 = c2.getContext("2d");
+    ctx2.clearRect(0,0,c2.width,c2.height);
+    ctx2.fillStyle = "#F8F";
+    ctx2.fillRect(0,0,c2.width,c2.height);
+    c2 = document.getElementById("right_btn");
+    ctx2 = c2.getContext("2d");
+    ctx2.clearRect(0,0,c2.width,c2.height);
+    ctx2.fillStyle = "#FF8";
+    ctx2.fillRect(0,0,c2.width,c2.height);
+    c2 = document.getElementById("up_btn");
+    ctx2 = c2.getContext("2d");
+    ctx2.clearRect(0,0,c2.width,c2.height);
+    ctx2.fillStyle = "#F88";
+    ctx2.fillRect(0,0,c2.width,c2.height);
+    c2 = document.getElementById("down_btn");
+    ctx2 = c2.getContext("2d");
+    ctx2.clearRect(0,0,c2.width,c2.height);
+    ctx2.fillStyle = "#8F8";
+    ctx2.fillRect(0,0,c2.width,c2.height);
+  }
 }
 
 function draw(){
@@ -530,8 +585,9 @@ function update(){
       level_switch = false;
       levels[cur_level].start();
     }
+    return;
   }
-  if(cur_level == -1 || levels[cur_level].complete){
+  if(levels[cur_level].complete){
     level_switch = true;
     level_switch_cnt = 50;
     cur_level ++;
@@ -539,6 +595,7 @@ function update(){
       cur_level = 0;
       game_done = true;
     }
+    return;
   }
   levels[cur_level].update();
 }
